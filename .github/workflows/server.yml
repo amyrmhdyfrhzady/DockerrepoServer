@@ -25,45 +25,17 @@ jobs:
 
       - name: Configure Google Drive
         env:
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          RCLONE_CONFIG_GDRIVE_TYPE: drive
+          RCLONE_CONFIG_GDRIVE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          RCLONE_CONFIG_GDRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          RCLONE_CONFIG_GDRIVE_SCOPE: drive.file
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
         run: |
-          test -n "$GOOGLE_CLIENT_ID"
-          test -n "$GOOGLE_CLIENT_SECRET"
+          test -n "$RCLONE_CONFIG_GDRIVE_CLIENT_ID"
+          test -n "$RCLONE_CONFIG_GDRIVE_CLIENT_SECRET"
           test -n "$GOOGLE_REFRESH_TOKEN"
 
-          mkdir -p ~/.config/rclone
-
-          python3 - <<'PY'
-          import json
-          import os
-
-          config = {
-              "gdrive": {
-                  "type": "drive",
-                  "client_id": os.environ["GOOGLE_CLIENT_ID"],
-                  "client_secret": os.environ["GOOGLE_CLIENT_SECRET"],
-                  "scope": "drive.file",
-                  "token": json.dumps({
-                      "access_token": "",
-                      "token_type": "Bearer",
-                      "refresh_token": os.environ["GOOGLE_REFRESH_TOKEN"],
-                      "expiry": "2000-01-01T00:00:00Z"
-                  })
-              }
-          }
-
-          with open(os.path.expanduser("~/.config/rclone/rclone.conf"), "w") as f:
-              f.write("[gdrive]\n")
-              f.write("type = drive\n")
-              f.write(f"client_id = {config['gdrive']['client_id']}\n")
-              f.write(f"client_secret = {config['gdrive']['client_secret']}\n")
-              f.write("scope = drive.file\n")
-              f.write(f"token = {config['gdrive']['token']}\n")
-          PY
-
-          chmod 600 ~/.config/rclone/rclone.conf
+          export RCLONE_CONFIG_GDRIVE_TOKEN="$(python3 -c 'import json,os; print(json.dumps({"access_token":"","token_type":"Bearer","refresh_token":os.environ["GOOGLE_REFRESH_TOKEN"],"expiry":"2000-01-01T00:00:00Z"}))')"
 
           echo "Google Drive credentials loaded."
 
