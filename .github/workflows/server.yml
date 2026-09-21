@@ -68,7 +68,7 @@ jobs:
           docker run -d \
             --name ubuntu-desktop-server \
             -p 6080:6080 \
-            -v /root/server-data:/root/server-data \
+                        -v "$GITHUB_WORKSPACE/server-data:/root/server-data" \
             ubuntu-desktop-server
 
           sleep 10
