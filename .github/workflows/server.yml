@@ -23,13 +23,17 @@ jobs:
           sudo dpkg -i cloudflared-linux-amd64.deb
           cloudflared --version
 
-      - name: Configure Google Drive
+            - name: Configure Google Drive
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
         run: |
           mkdir -p ~/.config/rclone
+
+          test -n "$GOOGLE_CLIENT_ID"
+          test -n "$GOOGLE_CLIENT_SECRET"
+          test -n "$GOOGLE_REFRESH_TOKEN"
 
           cat > ~/.config/rclone/rclone.conf <<EOF
           [gdrive]
@@ -42,8 +46,11 @@ jobs:
 
           chmod 600 ~/.config/rclone/rclone.conf
 
-          rclone mkdir gdrive:server-data
+          echo "Google Drive credentials loaded."
 
+          rclone config redacted gdrive
+
+          rclone lsd gdrive:
       - name: Restore persistent data
         run: |
           mkdir -p /root/server-data
