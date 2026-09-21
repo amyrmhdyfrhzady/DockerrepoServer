@@ -155,8 +155,10 @@ jobs:
           while true; do
             if ! docker ps --format '{{.Names}}' | grep -q '^ubuntu-desktop-server$'; then
               echo "Ubuntu container stopped."
-              break
+              docker ps -a
+              docker logs ubuntu-desktop-server || true
+             exit 1
             fi
 
-            sleep 30
-          done
+           sleep 30
+           done
