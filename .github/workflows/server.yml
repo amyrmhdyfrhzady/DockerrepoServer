@@ -1,0 +1,144 @@
+name: Ubuntu Desktop Server
+
+on:
+  workflow_dispatch:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install rclone
+        run: |
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+          rclone version
+
+      - name: Install cloudflared
+        run: |
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared-linux-amd64.deb
+          cloudflared --version
+
+      - name: Configure Google Drive
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+        run: |
+          mkdir -p ~/.config/rclone
+
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [gdrive]
+          type = drive
+          client_id = ${GOOGLE_CLIENT_ID}
+          client_secret = ${GOOGLE_CLIENT_SECRET}
+          scope = drive.file
+          token = {"access_token":"","token_type":"Bearer","refresh_token":"${GOOGLE_REFRESH_TOKEN}","expiry":"2000-01-01T00:00:00Z"}
+          EOF
+
+          chmod 600 ~/.config/rclone/rclone.conf
+
+          rclone mkdir gdrive:server-data
+
+      - name: Restore persistent data
+        run: |
+          mkdir -p /root/server-data
+
+          rclone copy \
+            gdrive:server-data \
+            /root/server-data \
+            --progress \
+            --transfers 4 \
+            --checkers 8
+
+          echo "Persistent data restored."
+
+      - name: Build Ubuntu image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -t ubuntu-desktop-server .
+
+      - name: Start Ubuntu desktop
+        run: |
+          docker run -d \
+            --name ubuntu-desktop-server \
+            -p 6080:6080 \
+            -v /root/server-data:/root/server-data \
+            ubuntu-desktop-server
+
+          sleep 10
+
+          docker ps
+          docker logs ubuntu-desktop-server
+
+      - name: Start Cloudflare Quick Tunnel
+        run: |
+          nohup cloudflared tunnel \
+            --no-autoupdate \
+            --url http://127.0.0.1:6080 \
+            > /tmp/cloudflared.log 2>&1 &
+
+          for i in {1..30}; do
+            URL=$(grep -o 'https://[-a-zA-Z0-9]*\.trycloudflare\.com' /tmp/cloudflared.log | head -n 1 || true)
+
+            if [ -n "$URL" ]; then
+              echo ""
+              echo "=========================================="
+              echo "       UBUNTU SERVER IS READY"
+              echo "=========================================="
+              echo ""
+              echo "noVNC:"
+              echo "$URL"
+              echo ""
+              echo "=========================================="
+              break
+            fi
+
+            sleep 2
+          done
+
+          if [ -z "$URL" ]; then
+            echo "Cloudflare Tunnel URL was not found."
+            cat /tmp/cloudflared.log
+            exit 1
+          fi
+
+      - name: Keep server alive
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+        run: |
+          cleanup() {
+            echo ""
+            echo "Stopping server..."
+
+            docker stop ubuntu-desktop-server || true
+
+            echo "Syncing persistent data to Google Drive..."
+
+            rclone sync \
+              /root/server-data \
+              gdrive:server-data \
+              --progress \
+              --transfers 4 \
+              --checkers 8
+
+            echo "Persistent data saved."
+          }
+
+          trap cleanup EXIT INT TERM
+
+          while true; do
+            if ! docker ps --format '{{.Names}}' | grep -q '^ubuntu-desktop-server$'; then
+              echo "Ubuntu container stopped."
+              exit 1
+            fi
+
+            sleep 30
+          done
