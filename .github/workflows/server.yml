@@ -43,8 +43,20 @@ jobs:
 
           rclone lsd gdrive:
       - name: Restore persistent data
+        env:
+          RCLONE_CONFIG_GDRIVE_TYPE: drive
+          RCLONE_CONFIG_GDRIVE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          RCLONE_CONFIG_GDRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          RCLONE_CONFIG_GDRIVE_SCOPE: drive.file
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
         run: |
+          test -n "$GOOGLE_REFRESH_TOKEN"
+
+          export RCLONE_CONFIG_GDRIVE_TOKEN="$(python3 -c 'import json,os; print(json.dumps({"access_token":"","token_type":"Bearer","refresh_token":os.environ["GOOGLE_REFRESH_TOKEN"],"expiry":"2000-01-01T00:00:00Z"}))')"
+
           mkdir -p "$GITHUB_WORKSPACE/server-data"
+
+          rclone lsd gdrive:
 
           rclone copy \
             gdrive:server-data \
