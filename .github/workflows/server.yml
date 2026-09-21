@@ -44,8 +44,6 @@ jobs:
           rclone lsd gdrive:
       - name: Restore persistent data
         run: |
-          mkdir -p /root/server-data
-
           mkdir -p "$GITHUB_WORKSPACE/server-data"
 
           rclone copy \
@@ -56,7 +54,7 @@ jobs:
             --checkers 8
 
           echo "Persistent data restored."
-
+          
       - name: Build Ubuntu image
         run: |
           docker build \
