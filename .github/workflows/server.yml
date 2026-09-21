@@ -76,11 +76,14 @@ jobs:
             -t ubuntu-desktop-server .
 
       - name: Start Ubuntu desktop
+        env:
+          VNC_PASSWORD: ${{ secrets.VNC_PASSWORD }}
         run: |
           docker run -d \
             --name ubuntu-desktop-server \
+            -e VNC_PASSWORD="$VNC_PASSWORD" \
             -p 6080:6080 \
-                        -v "$GITHUB_WORKSPACE/server-data:/root/server-data" \
+            -v "$GITHUB_WORKSPACE/server-data:/root/server-data" \
             ubuntu-desktop-server
 
           sleep 10
