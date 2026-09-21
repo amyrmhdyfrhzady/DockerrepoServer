@@ -46,9 +46,11 @@ jobs:
         run: |
           mkdir -p /root/server-data
 
+          mkdir -p "$GITHUB_WORKSPACE/server-data"
+
           rclone copy \
             gdrive:server-data \
-            /root/server-data \
+            "$GITHUB_WORKSPACE/server-data" \
             --progress \
             --transfers 4 \
             --checkers 8
