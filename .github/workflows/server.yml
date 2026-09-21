@@ -123,7 +123,7 @@ jobs:
             echo "Syncing persistent data to Google Drive..."
 
             rclone sync \
-              /root/server-data \
+                            "$GITHUB_WORKSPACE/server-data" \
               gdrive:server-data \
               --progress \
               --transfers 4 \
