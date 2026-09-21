@@ -107,8 +107,6 @@ jobs:
               echo "       UBUNTU SERVER IS READY"
               echo "=========================================="
               echo ""
-              echo "noVNC:"
-              echo "$URL"
               echo ""
               echo "=========================================="
               break
@@ -119,7 +117,6 @@ jobs:
 
           if [ -z "$URL" ]; then
             echo "Cloudflare Tunnel URL was not found."
-            cat /tmp/cloudflared.log
             exit 1
           fi
 
