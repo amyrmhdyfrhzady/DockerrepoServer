@@ -24,4 +24,4 @@ RUN touch /root/.Xauthority
 EXPOSE 5901
 EXPOSE 6080
 
-CMD bash -c 'mkdir -p /root/.vnc && echo "$VNC_PASSWORD" | vncpasswd -f > /root/.vnc/passwd && chmod 600 /root/.vnc/passwd && vncserver -localhost no -SecurityTypes VncAuth -geometry 1024x768 && openssl req -new -subj "/C=JP" -x509 -days 365 -nodes -out self.pem -keyout self.pem && websockify -D --web=/usr/share/novnc/ --cert=self.pem 6080 localhost:5901 && tail -f /dev/null'
+CMD bash -c 'mkdir -p /root/.vnc && printf "%s\n" "$VNC_PASSWORD" | vncpasswd -f > /root/.vnc/passwd && chmod 600 /root/.vnc/passwd && vncserver -localhost no -SecurityTypes VncAuth -geometry 1024x768 && openssl req -new -subj "/C=JP" -x509 -days 365 -nodes -out self.pem -keyout self.pem && websockify -D --web=/usr/share/novnc/ --cert=self.pem 6080 localhost:5901 && tail -f /dev/null'
