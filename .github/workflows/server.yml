@@ -42,6 +42,7 @@ jobs:
           rclone config redacted gdrive
 
           rclone lsd gdrive:
+
       - name: Restore persistent data
         env:
           RCLONE_CONFIG_GDRIVE_TYPE: drive
@@ -68,7 +69,7 @@ jobs:
             --checkers 8
 
           echo "Persistent data restored."
-          
+
       - name: Build Ubuntu image
         run: |
           docker build \
@@ -107,7 +108,7 @@ jobs:
               echo "       UBUNTU SERVER IS READY"
               echo "=========================================="
               echo ""
-              echo ""
+              echo "Quick Tunnel:"
               echo "$URL"
               echo "=========================================="
               break
@@ -120,6 +121,48 @@ jobs:
             echo "Cloudflare Tunnel URL was not found."
             exit 1
           fi
+
+          echo "TUNNEL_URL=$URL" >> "$GITHUB_ENV"
+
+      - name: Register Quick Tunnel with Worker Adapter
+        env:
+          WORKER_ADAPTER_URL: ${{ secrets.WORKER_ADAPTER_URL }}
+          WORKER_REGISTER_TOKEN: ${{ secrets.WORKER_REGISTER_TOKEN }}
+        run: |
+          set -e
+
+          test -n "$WORKER_ADAPTER_URL"
+          test -n "$WORKER_REGISTER_TOKEN"
+          test -n "$TUNNEL_URL"
+
+          WORKER_ADAPTER_URL="${WORKER_ADAPTER_URL%/}"
+
+          echo "=========================================="
+          echo "REGISTERING QUICK TUNNEL"
+          echo "=========================================="
+
+          RESPONSE=$(curl \
+            --fail-with-body \
+            --silent \
+            --show-error \
+            --request POST \
+            --url "${WORKER_ADAPTER_URL}/_adapter/register" \
+            --header "Authorization: Bearer ${WORKER_REGISTER_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data "{\"tunnel\":\"${TUNNEL_URL}\"}")
+
+          echo "$RESPONSE"
+
+          echo "=========================================="
+          echo "WORKER ADAPTER"
+          echo "=========================================="
+
+          echo "Public adapter URL:"
+          echo "$WORKER_ADAPTER_URL"
+
+          echo "=========================================="
+          echo "QUICK TUNNEL REGISTERED"
+          echo "=========================================="
 
       - name: Keep server alive
         env:
@@ -158,8 +201,8 @@ jobs:
               echo "Ubuntu container stopped."
               docker ps -a
               docker logs ubuntu-desktop-server || true
-             exit 1
+              exit 1
             fi
 
-           sleep 30
-           done
+            sleep 30
+          done
