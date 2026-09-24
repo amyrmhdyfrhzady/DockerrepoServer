@@ -31,16 +31,6 @@ RUN apt-get update \
     software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
-RUN add-apt-repository ppa:mozillateam/ppa -y \
-    && echo 'Package: *' >> /etc/apt/preferences.d/mozilla-firefox \
-    && echo 'Pin: release o=LP-PPA-mozillateam' >> /etc/apt/preferences.d/mozilla-firefox \
-    && echo 'Pin-Priority: 1001' >> /etc/apt/preferences.d/mozilla-firefox \
-    && echo 'Unattended-Upgrade::Allowed-Origins:: "LP-PPA-mozillateam:jammy";' \
-    > /etc/apt/apt.conf.d/51unattended-upgrades-firefox \
-    && apt-get update \
-    && apt-get install --no-install-recommends -y firefox \
-    && rm -rf /var/lib/apt/lists/*
-
 RUN apt-get update \
     && apt-get install --no-install-recommends -y xubuntu-icon-theme \
     && rm -rf /var/lib/apt/lists/*
