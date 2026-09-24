@@ -1,10 +1,9 @@
-FROM --platform=linux/amd64 ubuntu:22.04
+FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update
-
-RUN apt-get install --no-install-recommends -y \
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y \
     xfce4 \
     xfce4-goodies \
     tigervnc-standalone-server \
@@ -28,22 +27,23 @@ RUN apt-get install --no-install-recommends -y \
     x11-apps \
     openssl \
     ca-certificates \
-    tar
+    tar \
+    software-properties-common \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN rm -rf /var/lib/apt/lists/*
+RUN add-apt-repository ppa:mozillateam/ppa -y \
+    && echo 'Package: *' >> /etc/apt/preferences.d/mozilla-firefox \
+    && echo 'Pin: release o=LP-PPA-mozillateam' >> /etc/apt/preferences.d/mozilla-firefox \
+    && echo 'Pin-Priority: 1001' >> /etc/apt/preferences.d/mozilla-firefox \
+    && echo 'Unattended-Upgrade::Allowed-Origins:: "LP-PPA-mozillateam:jammy";' \
+    > /etc/apt/apt.conf.d/51unattended-upgrades-firefox \
+    && apt-get update \
+    && apt-get install --no-install-recommends -y firefox \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apt update -y && apt install -y software-properties-common
-
-RUN add-apt-repository ppa:mozillateam/ppa -y
-
-RUN echo 'Package: *' >> /etc/apt/preferences.d/mozilla-firefox
-RUN echo 'Pin: release o=LP-PPA-mozillateam' >> /etc/apt/preferences.d/mozilla-firefox
-RUN echo 'Pin-Priority: 1001' >> /etc/apt/preferences.d/mozilla-firefox
-RUN echo 'Unattended-Upgrade::Allowed-Origins:: "LP-PPA-mozillateam:jammy";' | tee /etc/apt/apt.conf.d/51unattended-upgrades-firefox
-
-RUN apt update -y && apt install -y firefox
-
-RUN apt update -y && apt install -y xubuntu-icon-theme
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y xubuntu-icon-theme \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN touch /root/.Xauthority
 
@@ -81,7 +81,7 @@ mkdir -p /root/.vnc /root/server-data/3x-ui /root/server-data/3x-ui/bin /root/se
 if [ ! -f /root/server-data/3x-ui/bin/xray-linux-amd64 ]; then \
     cp /opt/3x-ui/bin/xray-linux-amd64 /root/server-data/3x-ui/bin/xray-linux-amd64; \
 fi && \
-chmod +x /root/server-data/3x-ui/bin/xray-linux-amd64 && \ \
+chmod +x /root/server-data/3x-ui/bin/xray-linux-amd64 && \
 if [ ! -f /root/server-data/3x-ui/bin/geoip.dat ] && [ -f /opt/3x-ui/bin/geoip.dat ]; then \
     cp /opt/3x-ui/bin/geoip.dat /root/server-data/3x-ui/bin/geoip.dat; \
 fi && \
