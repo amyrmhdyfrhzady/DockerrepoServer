@@ -106,7 +106,7 @@ jobs:
             -p 28641:28641 \
             -p 31472:31472 \
             -p 39756:39756 \
-            -p 45283:45283 
+            -p 45283:45283 \
             -v "$GITHUB_WORKSPACE/server-data:/root/server-data" \
             ubuntu-desktop-server
 
