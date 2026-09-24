@@ -199,15 +199,25 @@ jobs:
 
           export RCLONE_CONFIG_GDRIVE_TOKEN="$(python3 -c 'import json,os; print(json.dumps({"access_token":"","token_type":"Bearer","refresh_token":os.environ["GOOGLE_REFRESH_TOKEN"],"expiry":"2000-01-01T00:00:00Z"}))')"
 
-          sync_to_drive() {
+            sync_to_drive() {
             echo ""
             echo "=========================================="
             echo "SYNCING SERVER DATA TO GOOGLE DRIVE"
             echo "=========================================="
 
+            CONTAINER_RUNNING=false
+
+            if docker ps --format '{{.Names}}' | grep -q '^ubuntu-desktop-server$'; then
+              CONTAINER_RUNNING=true
+              echo "Pausing Ubuntu container for consistent backup..."
+              docker pause ubuntu-desktop-server
+            fi
+
             sudo chmod -R a+rX "$GITHUB_WORKSPACE/server-data"
 
             rclone mkdir gdrive:server-data
+
+            set +e
 
             rclone sync \
               "$GITHUB_WORKSPACE/server-data" \
@@ -215,6 +225,20 @@ jobs:
               --transfers 4 \
               --checkers 8 \
               --create-empty-src-dirs
+
+            SYNC_STATUS=$?
+
+            set -e
+
+            if [ "$CONTAINER_RUNNING" = true ]; then
+              echo "Resuming Ubuntu container..."
+              docker unpause ubuntu-desktop-server
+            fi
+
+            if [ "$SYNC_STATUS" -ne 0 ]; then
+              echo "Google Drive sync failed."
+              return "$SYNC_STATUS"
+            fi
 
             echo "Sync completed."
           }
