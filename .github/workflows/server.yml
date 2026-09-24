@@ -2,7 +2,11 @@ name: Ubuntu Desktop Server
 
 on:
   workflow_dispatch:
-
+  
+permissions:
+  actions: write
+  contents: read
+  
 jobs:
   server:
     runs-on: ubuntu-latest
@@ -222,6 +226,9 @@ jobs:
           echo "Server is running."
           echo "Automatic Google Drive sync: every 30 seconds."
 
+          START_TIME=$(date +%s)
+          MAX_RUNTIME=$((345 * 60))
+
           while true; do
             if ! docker ps --format '{{.Names}}' | grep -q '^ubuntu-desktop-server$'; then
               echo "Ubuntu container stopped."
@@ -230,7 +237,36 @@ jobs:
               exit 1
             fi
 
-            sleep 30
+                        sleep 30
 
             sync_to_drive
+
+            ELAPSED=$(( $(date +%s) - START_TIME ))
+
+            if [ "$ELAPSED" -ge "$MAX_RUNTIME" ]; then
+              echo "5 hours 45 minutes reached."
+              break
+            fi
           done
+          
+      - name: Start next workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+
+          echo "Starting next Ubuntu Desktop Server workflow..."
+
+          curl \
+            --fail-with-body \
+            --silent \
+            --show-error \
+            --request POST \
+            --url "https://api.github.com/repos/${{ github.repository }}/actions/workflows/server.yml/dispatches" \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --header "Content-Type: application/json" \
+            --data '{"ref":"main"}'
+
+          echo "Next workflow dispatched successfully."
