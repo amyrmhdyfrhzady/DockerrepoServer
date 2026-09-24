@@ -77,8 +77,8 @@ CMD bash -c '\
 mkdir -p /root/.vnc /root/server-data/3x-ui /root/server-data/3x-ui/bin /root/server-data/3x-ui/log && \
 if [ ! -f /root/server-data/3x-ui/bin/xray-linux-amd64 ]; then \
     cp /opt/3x-ui/bin/xray-linux-amd64 /root/server-data/3x-ui/bin/xray-linux-amd64; \
-    chmod +x /root/server-data/3x-ui/bin/xray-linux-amd64; \
 fi && \
+chmod +x /root/server-data/3x-ui/bin/xray-linux-amd64 && \ \
 if [ ! -f /root/server-data/3x-ui/bin/geoip.dat ] && [ -f /opt/3x-ui/bin/geoip.dat ]; then \
     cp /opt/3x-ui/bin/geoip.dat /root/server-data/3x-ui/bin/geoip.dat; \
 fi && \
