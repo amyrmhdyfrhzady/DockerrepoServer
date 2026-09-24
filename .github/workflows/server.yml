@@ -88,11 +88,15 @@ jobs:
         run: |
           docker build \
             --platform linux/amd64 \
+            --progress=plain \
+            --no-cache \
             -t ubuntu-desktop-server .
 
       - name: Start Ubuntu desktop
         env:
+        
           VNC_PASSWORD: ${{ secrets.VNC_PASSWORD }}
+          
         run: |
           docker run -d \
             --name ubuntu-desktop-server \
