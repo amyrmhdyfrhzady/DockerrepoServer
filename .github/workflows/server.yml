@@ -2,11 +2,11 @@ name: Ubuntu Desktop Server
 
 on:
   workflow_dispatch:
-  
+
 permissions:
   actions: write
   contents: read
-  
+
 jobs:
   server:
     runs-on: ubuntu-latest
@@ -115,39 +115,7 @@ jobs:
           docker ps
           docker logs ubuntu-desktop-server
 
-      - name: Start Cloudflare Quick Tunnel
-        run: |
-          nohup cloudflared tunnel \
-            --no-autoupdate \
-            --url http://127.0.0.1:6080 \
-            > /tmp/cloudflared.log 2>&1 &
-
-          for i in {1..30}; do
-            URL=$(grep -o 'https://[-a-zA-Z0-9]*\.trycloudflare\.com' /tmp/cloudflared.log | head -n 1 || true)
-
-            if [ -n "$URL" ]; then
-              echo ""
-              echo "=========================================="
-              echo "       UBUNTU SERVER IS READY"
-              echo "=========================================="
-              echo ""
-              echo "Quick Tunnel:"
-              echo "$URL"
-              echo "=========================================="
-              break
-            fi
-
-            sleep 2
-          done
-
-          if [ -z "$URL" ]; then
-            echo "Cloudflare Tunnel URL was not found."
-            exit 1
-          fi
-
-          echo "TUNNEL_URL=$URL" >> "$GITHUB_ENV"
-
-      - name: Register Quick Tunnel with Worker Adapter
+      - name: Start Cloudflare Quick Tunnels
         env:
           WORKER_ADAPTER_URL: ${{ secrets.WORKER_ADAPTER_URL }}
           WORKER_REGISTER_TOKEN: ${{ secrets.WORKER_REGISTER_TOKEN }}
@@ -156,35 +124,181 @@ jobs:
 
           test -n "$WORKER_ADAPTER_URL"
           test -n "$WORKER_REGISTER_TOKEN"
-          test -n "$TUNNEL_URL"
 
           WORKER_ADAPTER_URL="${WORKER_ADAPTER_URL%/}"
 
+          mkdir -p /tmp/cloudflared
+
+          start_tunnel() {
+            local NAME="$1"
+            local PORT="$2"
+
+            echo ""
+            echo "=========================================="
+            echo "STARTING TUNNEL: $NAME"
+            echo "LOCAL PORT: $PORT"
+            echo "=========================================="
+
+            nohup cloudflared tunnel \
+              --no-autoupdate \
+              --url "http://127.0.0.1:${PORT}" \
+              > "/tmp/cloudflared/${NAME}.log" 2>&1 &
+
+            local PID=$!
+
+            echo "$PID" > "/tmp/cloudflared/${NAME}.pid"
+
+            local URL=""
+
+            for i in {1..30}; do
+              URL=$(grep -o 'https://[-a-zA-Z0-9]*\.trycloudflare\.com' \
+                "/tmp/cloudflared/${NAME}.log" | head -n 1 || true)
+
+              if [ -n "$URL" ]; then
+                break
+              fi
+
+              sleep 2
+            done
+
+            if [ -z "$URL" ]; then
+              echo "Tunnel URL was not found for $NAME."
+              echo ""
+              echo "Cloudflared log:"
+              cat "/tmp/cloudflared/${NAME}.log"
+              exit 1
+            fi
+
+            echo "$URL" > "/tmp/cloudflared/${NAME}.url"
+
+            echo ""
+            echo "Tunnel ready:"
+            echo "$URL"
+          }
+
+          start_tunnel "vnc" "6080"
+          start_tunnel "panel" "2053"
+          start_tunnel "service-2096" "2096"
+          start_tunnel "xray" "17432"
+          start_tunnel "service-23187" "23187"
+          start_tunnel "service-28641" "28641"
+          start_tunnel "service-31472" "31472"
+          start_tunnel "service-39756" "39756"
+          start_tunnel "service-45283" "45283"
+
+          VNC_URL=$(cat /tmp/cloudflared/vnc.url)
+          PANEL_URL=$(cat /tmp/cloudflared/panel.url)
+          SERVICE_2096_URL=$(cat /tmp/cloudflared/service-2096.url)
+          XRAY_URL=$(cat /tmp/cloudflared/xray.url)
+          SERVICE_23187_URL=$(cat /tmp/cloudflared/service-23187.url)
+          SERVICE_28641_URL=$(cat /tmp/cloudflared/service-28641.url)
+          SERVICE_31472_URL=$(cat /tmp/cloudflared/service-31472.url)
+          SERVICE_39756_URL=$(cat /tmp/cloudflared/service-39756.url)
+          SERVICE_45283_URL=$(cat /tmp/cloudflared/service-45283.url)
+
+          echo "VNC_URL=$VNC_URL" >> "$GITHUB_ENV"
+          echo "PANEL_URL=$PANEL_URL" >> "$GITHUB_ENV"
+          echo "SERVICE_2096_URL=$SERVICE_2096_URL" >> "$GITHUB_ENV"
+          echo "XRAY_URL=$XRAY_URL" >> "$GITHUB_ENV"
+          echo "SERVICE_23187_URL=$SERVICE_23187_URL" >> "$GITHUB_ENV"
+          echo "SERVICE_28641_URL=$SERVICE_28641_URL" >> "$GITHUB_ENV"
+          echo "SERVICE_31472_URL=$SERVICE_31472_URL" >> "$GITHUB_ENV"
+          echo "SERVICE_39756_URL=$SERVICE_39756_URL" >> "$GITHUB_ENV"
+          echo "SERVICE_45283_URL=$SERVICE_45283_URL"
+
+          echo ""
           echo "=========================================="
-          echo "REGISTERING QUICK TUNNEL"
+          echo "ALL QUICK TUNNELS ARE READY"
+          echo "=========================================="
+          echo "VNC:         $VNC_URL"
+          echo "PANEL:       $PANEL_URL"
+          echo "PORT 2096:   $SERVICE_2096_URL"
+          echo "XRAY:        $XRAY_URL"
+          echo "PORT 23187:  $SERVICE_23187_URL"
+          echo "PORT 28641:  $SERVICE_28641_URL"
+          echo "PORT 31472:  $SERVICE_31472_URL"
+          echo "PORT 39756:  $SERVICE_39756_URL"
+          echo "PORT 45283:  $SERVICE_45283_URL"
           echo "=========================================="
 
-          RESPONSE=$(curl \
-            --fail-with-body \
-            --silent \
-            --show-error \
-            --request POST \
-            --url "${WORKER_ADAPTER_URL}/_adapter/register" \
-            --header "Authorization: Bearer ${WORKER_REGISTER_TOKEN}" \
-            --header "Content-Type: application/json" \
-            --data "{\"tunnel\":\"${TUNNEL_URL}\"}")
+      - name: Register Quick Tunnels with Worker Adapter
+        env:
+          WORKER_ADAPTER_URL: ${{ secrets.WORKER_ADAPTER_URL }}
+          WORKER_REGISTER_TOKEN: ${{ secrets.WORKER_REGISTER_TOKEN }}
+        run: |
+          set -e
 
-          echo "$RESPONSE"
+          test -n "$WORKER_ADAPTER_URL"
+          test -n "$WORKER_REGISTER_TOKEN"
 
+          WORKER_ADAPTER_URL="${WORKER_ADAPTER_URL%/}"
+
+          register_route() {
+            local ROUTE="$1"
+            local TUNNEL="$2"
+
+            echo ""
+            echo "Registering route: $ROUTE"
+            echo "Tunnel: $TUNNEL"
+
+            RESPONSE=$(curl \
+              --fail-with-body \
+              --silent \
+              --show-error \
+              --request POST \
+              --url "${WORKER_ADAPTER_URL}/_adapter/register" \
+              --header "Authorization: Bearer ${WORKER_REGISTER_TOKEN}" \
+              --header "Content-Type: application/json" \
+              --data "{\"route\":\"${ROUTE}\",\"tunnel\":\"${TUNNEL}\"}")
+
+            echo "$RESPONSE"
+          }
+
+          register_route "/" "$VNC_URL"
+          register_route "/panel" "$PANEL_URL"
+          register_route "/p2096" "$SERVICE_2096_URL"
+          register_route "/xray" "$XRAY_URL"
+          register_route "/p23187" "$SERVICE_23187_URL"
+          register_route "/p28641" "$SERVICE_28641_URL"
+          register_route "/p31472" "$SERVICE_31472_URL"
+          register_route "/p39756" "$SERVICE_39756_URL"
+          register_route "/p45283" "$SERVICE_45283_URL"
+
+          echo ""
           echo "=========================================="
-          echo "WORKER ADAPTER"
+          echo "ALL ROUTES REGISTERED"
           echo "=========================================="
-
-          echo "Public adapter URL:"
+          echo ""
+          echo "Worker Adapter:"
           echo "$WORKER_ADAPTER_URL"
-
-          echo "=========================================="
-          echo "QUICK TUNNEL REGISTERED"
+          echo ""
+          echo "VNC:"
+          echo "$WORKER_ADAPTER_URL/"
+          echo ""
+          echo "Panel:"
+          echo "$WORKER_ADAPTER_URL/panel/"
+          echo ""
+          echo "Port 2096:"
+          echo "$WORKER_ADAPTER_URL/p2096/"
+          echo ""
+          echo "Xray:"
+          echo "$WORKER_ADAPTER_URL/xray/"
+          echo ""
+          echo "Port 23187:"
+          echo "$WORKER_ADAPTER_URL/p23187/"
+          echo ""
+          echo "Port 28641:"
+          echo "$WORKER_ADAPTER_URL/p28641/"
+          echo ""
+          echo "Port 31472:"
+          echo "$WORKER_ADAPTER_URL/p31472/"
+          echo ""
+          echo "Port 39756:"
+          echo "$WORKER_ADAPTER_URL/p39756/"
+          echo ""
+          echo "Port 45283:"
+          echo "$WORKER_ADAPTER_URL/p45283/"
+          echo ""
           echo "=========================================="
 
       - name: Keep server alive
@@ -199,7 +313,7 @@ jobs:
 
           export RCLONE_CONFIG_GDRIVE_TOKEN="$(python3 -c 'import json,os; print(json.dumps({"access_token":"","token_type":"Bearer","refresh_token":os.environ["GOOGLE_REFRESH_TOKEN"],"expiry":"2000-01-01T00:00:00Z"}))')"
 
-            sync_to_drive() {
+          sync_to_drive() {
             echo ""
             echo "=========================================="
             echo "SYNCING SERVER DATA TO GOOGLE DRIVE"
@@ -272,7 +386,7 @@ jobs:
               exit 1
             fi
 
-                        sleep 30
+            sleep 30
 
             sync_to_drive
 
@@ -283,7 +397,7 @@ jobs:
               break
             fi
           done
-          
+
       - name: Start next workflow
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
