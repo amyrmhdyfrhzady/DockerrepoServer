@@ -205,6 +205,8 @@ jobs:
             echo "SYNCING SERVER DATA TO GOOGLE DRIVE"
             echo "=========================================="
 
+            sudo chmod -R a+rX "$GITHUB_WORKSPACE/server-data"
+
             rclone mkdir gdrive:server-data
 
             rclone sync \
