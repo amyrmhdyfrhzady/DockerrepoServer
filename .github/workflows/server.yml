@@ -204,7 +204,7 @@ jobs:
           echo "SERVICE_28641_URL=$SERVICE_28641_URL" >> "$GITHUB_ENV"
           echo "SERVICE_31472_URL=$SERVICE_31472_URL" >> "$GITHUB_ENV"
           echo "SERVICE_39756_URL=$SERVICE_39756_URL" >> "$GITHUB_ENV"
-          echo "SERVICE_45283_URL=$SERVICE_45283_URL"
+          echo "SERVICE_45283_URL=$SERVICE_45283_URL" >> "$GITHUB_ENV"
 
           echo ""
           echo "=========================================="
