@@ -2,7 +2,9 @@ FROM --platform=linux/amd64 ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt update -y && apt install --no-install-recommends -y \
+RUN apt-get update
+
+RUN apt-get install --no-install-recommends -y \
     xfce4 \
     xfce4-goodies \
     tigervnc-standalone-server \
@@ -26,8 +28,9 @@ RUN apt update -y && apt install --no-install-recommends -y \
     x11-apps \
     openssl \
     ca-certificates \
-    tar \
-    && rm -rf /var/lib/apt/lists/*
+    tar
+
+RUN rm -rf /var/lib/apt/lists/*
 
 RUN apt update -y && apt install -y software-properties-common
 
