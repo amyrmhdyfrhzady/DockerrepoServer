@@ -51,15 +51,22 @@ jobs:
           RCLONE_CONFIG_GDRIVE_SCOPE: drive.file
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
         run: |
+          set -e
+
           test -n "$GOOGLE_REFRESH_TOKEN"
 
           export RCLONE_CONFIG_GDRIVE_TOKEN="$(python3 -c 'import json,os; print(json.dumps({"access_token":"","token_type":"Bearer","refresh_token":os.environ["GOOGLE_REFRESH_TOKEN"],"expiry":"2000-01-01T00:00:00Z"}))')"
 
           mkdir -p "$GITHUB_WORKSPACE/server-data"
 
+          echo "Checking Google Drive..."
+
           rclone mkdir gdrive:server-data
 
-          rclone lsd gdrive:
+          echo "Files currently stored in Google Drive:"
+          rclone lsf gdrive:server-data || true
+
+          echo "Restoring persistent data..."
 
           rclone copy \
             gdrive:server-data \
@@ -67,6 +74,9 @@ jobs:
             --progress \
             --transfers 4 \
             --checkers 8
+
+          echo "Files restored locally:"
+          find "$GITHUB_WORKSPACE/server-data" -type f -print || true
 
           echo "Persistent data restored."
 
@@ -172,7 +182,27 @@ jobs:
           RCLONE_CONFIG_GDRIVE_SCOPE: drive.file
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
         run: |
+          set -e
+
           export RCLONE_CONFIG_GDRIVE_TOKEN="$(python3 -c 'import json,os; print(json.dumps({"access_token":"","token_type":"Bearer","refresh_token":os.environ["GOOGLE_REFRESH_TOKEN"],"expiry":"2000-01-01T00:00:00Z"}))')"
+
+          sync_to_drive() {
+            echo ""
+            echo "=========================================="
+            echo "SYNCING SERVER DATA TO GOOGLE DRIVE"
+            echo "=========================================="
+
+            rclone mkdir gdrive:server-data
+
+            rclone sync \
+              "$GITHUB_WORKSPACE/server-data" \
+              gdrive:server-data \
+              --transfers 4 \
+              --checkers 8 \
+              --create-empty-src-dirs
+
+            echo "Sync completed."
+          }
 
           cleanup() {
             echo ""
@@ -180,21 +210,17 @@ jobs:
 
             docker stop ubuntu-desktop-server || true
 
-            echo "Syncing persistent data to Google Drive..."
+            echo "Final sync to Google Drive..."
 
-            rclone mkdir gdrive:server-data
-
-            rclone sync \
-              "$GITHUB_WORKSPACE/server-data" \
-              gdrive:server-data \
-              --progress \
-              --transfers 4 \
-              --checkers 8
+            sync_to_drive
 
             echo "Persistent data saved."
           }
 
           trap cleanup EXIT INT TERM
+
+          echo "Server is running."
+          echo "Automatic Google Drive sync: every 30 seconds."
 
           while true; do
             if ! docker ps --format '{{.Names}}' | grep -q '^ubuntu-desktop-server$'; then
@@ -205,4 +231,6 @@ jobs:
             fi
 
             sleep 30
+
+            sync_to_drive
           done
