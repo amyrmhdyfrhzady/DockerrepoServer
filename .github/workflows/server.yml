@@ -94,14 +94,16 @@ jobs:
 
       - name: Start Ubuntu desktop
         env:
+        
           VNC_PASSWORD: ${{ secrets.VNC_PASSWORD }}
-
+          
         run: |
           docker run -d \
             --name ubuntu-desktop-server \
             -e VNC_PASSWORD="$VNC_PASSWORD" \
             -p 5901:5901 \
             -p 6080:6080 \
+            -p 2053:2053 \
             -p 2096:2096 \
             -p 17432:17432 \
             -p 23187:23187 \
@@ -179,6 +181,7 @@ jobs:
           }
 
           start_tunnel "vnc" "6080"
+          start_tunnel "panel" "2053"
           start_tunnel "service-2096" "2096"
           start_tunnel "xray" "17432"
           start_tunnel "service-23187" "23187"
@@ -188,6 +191,7 @@ jobs:
           start_tunnel "service-45283" "45283"
 
           VNC_URL=$(cat /tmp/cloudflared/vnc.url)
+          PANEL_URL=$(cat /tmp/cloudflared/panel.url)
           SERVICE_2096_URL=$(cat /tmp/cloudflared/service-2096.url)
           XRAY_URL=$(cat /tmp/cloudflared/xray.url)
           SERVICE_23187_URL=$(cat /tmp/cloudflared/service-23187.url)
@@ -197,6 +201,7 @@ jobs:
           SERVICE_45283_URL=$(cat /tmp/cloudflared/service-45283.url)
 
           echo "VNC_URL=$VNC_URL" >> "$GITHUB_ENV"
+          echo "PANEL_URL=$PANEL_URL" >> "$GITHUB_ENV"
           echo "SERVICE_2096_URL=$SERVICE_2096_URL" >> "$GITHUB_ENV"
           echo "XRAY_URL=$XRAY_URL" >> "$GITHUB_ENV"
           echo "SERVICE_23187_URL=$SERVICE_23187_URL" >> "$GITHUB_ENV"
@@ -210,6 +215,7 @@ jobs:
           echo "ALL QUICK TUNNELS ARE READY"
           echo "=========================================="
           echo "VNC:         $VNC_URL"
+          echo "PANEL:       $PANEL_URL"
           echo "PORT 2096:   $SERVICE_2096_URL"
           echo "XRAY:        $XRAY_URL"
           echo "PORT 23187:  $SERVICE_23187_URL"
@@ -253,6 +259,7 @@ jobs:
           }
 
           register_route "/" "$VNC_URL"
+          register_route "/panel" "$PANEL_URL"
           register_route "/p2096" "$SERVICE_2096_URL"
           register_route "/xray" "$XRAY_URL"
           register_route "/p23187" "$SERVICE_23187_URL"
@@ -271,6 +278,9 @@ jobs:
           echo ""
           echo "VNC:"
           echo "$WORKER_ADAPTER_URL/"
+          echo ""
+          echo "Panel:"
+          echo "$WORKER_ADAPTER_URL/panel/"
           echo ""
           echo "Port 2096:"
           echo "$WORKER_ADAPTER_URL/p2096/"
@@ -317,9 +327,7 @@ jobs:
 
             if docker ps --format '{{.Names}}' | grep -q '^ubuntu-desktop-server$'; then
               CONTAINER_RUNNING=true
-
               echo "Pausing Ubuntu container for consistent backup..."
-
               docker pause ubuntu-desktop-server
             fi
 
@@ -342,7 +350,6 @@ jobs:
 
             if [ "$CONTAINER_RUNNING" = true ]; then
               echo "Resuming Ubuntu container..."
-
               docker unpause ubuntu-desktop-server
             fi
 
