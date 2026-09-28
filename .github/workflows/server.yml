@@ -363,13 +363,14 @@ jobs:
 
           cleanup() {
             echo ""
-            echo "Stopping server..."
-
-            docker stop ubuntu-desktop-server || true
-
             echo "Final sync to Google Drive..."
 
             sync_to_drive
+
+            echo ""
+            echo "Stopping server..."
+
+            docker stop ubuntu-desktop-server || true
 
             echo "Persistent data saved."
           }
