@@ -37,8 +37,27 @@ RUN apt-get update \
 
 RUN touch /root/.Xauthority
 
+RUN mkdir -p \
+    /root/server-data/3x-ui \
+    /root/server-data/3x-ui/bin \
+    /root/server-data/3x-ui/log
+
+RUN wget -q \
+    https://github.com/MHSanaei/3x-ui/releases/latest/download/x-ui-linux-amd64.tar.gz \
+    -O /tmp/x-ui-linux-amd64.tar.gz \
+    && mkdir -p /opt/3x-ui \
+    && tar -xzf /tmp/x-ui-linux-amd64.tar.gz -C /opt/3x-ui --strip-components=1 \
+    && chmod +x /opt/3x-ui/x-ui \
+    && chmod +x /opt/3x-ui/bin/xray-linux-amd64 \
+    && rm -f /tmp/x-ui-linux-amd64.tar.gz
+
+ENV XUI_DB_FOLDER=/root/server-data/3x-ui
+ENV XUI_LOG_FOLDER=/root/server-data/3x-ui/log
+ENV XUI_BIN_FOLDER=/root/server-data/3x-ui/bin
+
 EXPOSE 5901
 EXPOSE 6080
+EXPOSE 2053
 EXPOSE 2096
 EXPOSE 17432
 EXPOSE 23187
@@ -48,10 +67,25 @@ EXPOSE 39756
 EXPOSE 45283
 
 CMD bash -c '\
-mkdir -p /root/.vnc && \
+mkdir -p /root/.vnc /root/server-data/3x-ui /root/server-data/3x-ui/bin /root/server-data/3x-ui/log && \
+if [ ! -f /root/server-data/3x-ui/bin/xray-linux-amd64 ]; then \
+    cp /opt/3x-ui/bin/xray-linux-amd64 /root/server-data/3x-ui/bin/xray-linux-amd64; \
+fi && \
+chmod +x /root/server-data/3x-ui/bin/xray-linux-amd64 && \
+if [ ! -f /root/server-data/3x-ui/bin/geoip.dat ] && [ -f /opt/3x-ui/bin/geoip.dat ]; then \
+    cp /opt/3x-ui/bin/geoip.dat /root/server-data/3x-ui/bin/geoip.dat; \
+fi && \
+if [ ! -f /root/server-data/3x-ui/bin/geosite.dat ] && [ -f /opt/3x-ui/bin/geosite.dat ]; then \
+    cp /opt/3x-ui/bin/geosite.dat /root/server-data/3x-ui/bin/geosite.dat; \
+fi && \
 printf "%s\n" "$VNC_PASSWORD" | vncpasswd -f > /root/.vnc/passwd && \
 chmod 600 /root/.vnc/passwd && \
 vncserver -localhost no -SecurityTypes VncAuth -geometry 1024x768 && \
 openssl req -new -subj "/C=JP" -x509 -days 365 -nodes -out self.pem -keyout self.pem && \
 websockify -D --web=/usr/share/novnc/ --cert=self.pem 6080 localhost:5901 && \
+cd /opt/3x-ui && \
+XUI_DB_FOLDER=/root/server-data/3x-ui \
+XUI_LOG_FOLDER=/root/server-data/3x-ui/log \
+XUI_BIN_FOLDER=/root/server-data/3x-ui/bin \
+./x-ui run & \
 tail -f /dev/null'
